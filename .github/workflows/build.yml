@@ -18,26 +18,24 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
 
-      # Use the Android SDK that is pre-installed on ubuntu-latest runners.
-      # This avoids installing a conflicting system Gradle via setup-android.
-      - name: Set up Android SDK
+      # Provisions Gradle 8.13 explicitly, bypassing any pre-installed version
+      - name: Setup Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      # Accept Android SDK licenses and install required packages
+      - name: Setup Android SDK
         run: |
           export ANDROID_HOME=/usr/local/lib/android/sdk
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_PATH
-          # Accept all licenses non-interactively
-          yes | sdkmanager --licenses 2>&1 | grep -c "accepted" || true
-          # Install required SDK components
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" 2>&1 | tail -3
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>&1 | tail -1 || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            "platforms;android-34" "build-tools;34.0.0" 2>&1 | tail -3
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      # The Gradle wrapper will download Gradle 8.13 on first run (~30 sec).
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace --no-daemon
+        run: gradle assembleDebug --stacktrace --no-daemon
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
 
