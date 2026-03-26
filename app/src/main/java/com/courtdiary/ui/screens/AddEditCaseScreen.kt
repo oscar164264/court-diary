@@ -21,6 +21,21 @@ import com.courtdiary.viewmodel.CaseResult
 import com.courtdiary.viewmodel.CaseViewModel
 import kotlinx.coroutines.launch
 
+private val STAGE_OPTIONS = listOf(
+    "Initial Hearing",
+    "Evidence Submission",
+    "Witness Examination",
+    "Cross Examination",
+    "Expert Witness Testimony",
+    "Mediation",
+    "Settlement Discussion",
+    "Final Arguments",
+    "Judgment",
+    "Appeal",
+    "Execution",
+    "Case Closed"
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditCaseScreen(
@@ -157,10 +172,10 @@ fun AddEditCaseScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // ── Section: CourtCase Information
+            // ── Section: Case Information
             FormSectionLabel("Case Information")
 
-            // CourtCase Number (required)
+            // Case Number (required)
             OutlinedTextField(
                 value = caseNumber,
                 onValueChange = {
@@ -237,26 +252,22 @@ fun AddEditCaseScreen(
                 errorText = nextHearingDateError
             )
 
-            // ── Section: CourtCase Stages
+            // ── Section: Case Stages
             Spacer(Modifier.height(4.dp))
             FormSectionLabel("Case Stages")
 
-            OutlinedTextField(
+            StageDropdown(
+                label = "Last Stage",
                 value = lastStage,
                 onValueChange = { lastStage = it },
-                label = { Text("Last Stage") },
-                leadingIcon = { Icon(Icons.Filled.History, null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                icon = Icons.Filled.History
             )
 
-            OutlinedTextField(
+            StageDropdown(
+                label = "Next Stage",
                 value = nextStage,
                 onValueChange = { nextStage = it },
-                label = { Text("Next Stage") },
-                leadingIcon = { Icon(Icons.Filled.NavigateNext, null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                icon = Icons.Filled.NavigateNext
             )
 
             // ── Notes
@@ -360,24 +371,75 @@ private fun DateField(
     isError: Boolean = false,
     errorText: String? = null
 ) {
-    OutlinedTextField(
-        value = value?.toDisplayDate() ?: "",
-        onValueChange = {},
-        label = { Text(label) },
-        leadingIcon = { Icon(Icons.Filled.CalendarToday, null) },
-        trailingIcon = {
-            if (value != null) {
-                IconButton(onClick = onClear) {
-                    Icon(Icons.Filled.Clear, "Clear date")
+    // Box overlay is required because OutlinedTextField intercepts clicks internally.
+    // The transparent Box on top captures the tap and forwards it to onClick.
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = value?.toDisplayDate() ?: "",
+            onValueChange = {},
+            label = { Text(label) },
+            leadingIcon = { Icon(Icons.Filled.CalendarToday, null) },
+            trailingIcon = {
+                if (value != null) {
+                    IconButton(onClick = onClear) {
+                        Icon(Icons.Filled.Clear, "Clear date")
+                    }
                 }
+            },
+            readOnly = true,
+            isError = isError,
+            supportingText = errorText?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Tap to select") }
+        )
+        // Transparent click-capture overlay (excludes trailing icon area so Clear still works)
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable(onClick = onClick)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StageDropdown(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(label) },
+            leadingIcon = { Icon(icon, null) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(),
+            singleLine = true
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            STAGE_OPTIONS.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onValueChange(option)
+                        expanded = false
+                    }
+                )
             }
-        },
-        readOnly = true,
-        isError = isError,
-        supportingText = errorText?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        placeholder = { Text("Tap to select") }
-    )
+        }
+    }
 }
