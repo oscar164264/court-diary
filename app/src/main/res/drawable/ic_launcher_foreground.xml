@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Gavel icon – simplified for launcher -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,20 C35.2,20 20,35.2 20,54 C20,72.8 35.2,88 54,88 C72.8,88 88,72.8 88,54 C88,35.2 72.8,20 54,20Z" />
+    <path
+        android:fillColor="#1A237E"
+        android:pathData="M42,40 L66,40 L66,44 L42,44Z
+              M42,50 L66,50 L66,54 L42,54Z
+              M42,60 L58,60 L58,64 L42,64Z
+              M36,36 L72,36 L72,68 L36,68Z"
+        android:strokeColor="#1A237E"
+        android:strokeWidth="1" />
+    <!-- Book / diary shape -->
+    <path
+        android:fillColor="#1A237E"
+        android:pathData="M38,34 Q37,33 38,33 L70,33 Q71,33 71,34 L71,70 Q71,71 70,71 L38,71 Q37,71 37,70 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M43,41 L65,41 L65,44 L43,44Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M43,49 L65,49 L65,52 L43,52Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M43,57 L57,57 L57,60 L43,60Z" />
+    <path
+        android:fillColor="#FFCC00"
+        android:pathData="M65,62 L72,55 L75,58 L68,65Z" />
+</vector>

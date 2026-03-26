@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme (used before Compose takes over) -->
+    <style name="Theme.CourtDiary" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/primary_blue_dark</item>
+        <item name="android:navigationBarColor">@color/white</item>
+        <item name="android:windowBackground">@color/background_gray</item>
+    </style>
+</resources>
