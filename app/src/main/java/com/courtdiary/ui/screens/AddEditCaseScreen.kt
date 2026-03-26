@@ -1,5 +1,6 @@
 package com.courtdiary.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -376,17 +377,7 @@ private fun DateField(
         supportingText = errorText?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
         modifier = Modifier
             .fillMaxWidth()
-            .clickableWithoutRipple(onClick),
+            .clickable(onClick = onClick),
         placeholder = { Text("Tap to select") }
     )
 }
-
-// Extension to make a read-only field tappable
-private fun Modifier.clickableWithoutRipple(onClick: () -> Unit): Modifier =
-    this.then(
-        Modifier.clickable(
-            interactionSource = androidx.compose.foundation.interaction.MutableInteractionSource(),
-            indication = null,
-            onClick = onClick
-        )
-    )

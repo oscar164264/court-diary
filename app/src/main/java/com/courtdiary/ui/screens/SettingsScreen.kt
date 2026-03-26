@@ -304,7 +304,7 @@ private fun SettingsInfoRow(
     ) {
         Icon(icon, null, Modifier.size(24.dp), tint = PrimaryBlue)
         Spacer(Modifier.width(12.dp))
-        Text(title, style = MaterialTheme.typography.bodyLarge, Modifier.weight(1f))
+        Text(text = title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         Text(
             value,
             style = MaterialTheme.typography.bodyMedium,
