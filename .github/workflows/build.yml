@@ -20,14 +20,26 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # Use the Android SDK that is pre-installed on ubuntu-latest runners.
+      # This avoids installing a conflicting system Gradle via setup-android.
+      - name: Set up Android SDK
+        run: |
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_PATH
+          # Accept all licenses non-interactively
+          yes | sdkmanager --licenses 2>&1 | grep -c "accepted" || true
+          # Install required SDK components
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" 2>&1 | tail -3
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      # The Gradle wrapper will download Gradle 8.13 on first run (~30 sec).
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace --no-daemon
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
