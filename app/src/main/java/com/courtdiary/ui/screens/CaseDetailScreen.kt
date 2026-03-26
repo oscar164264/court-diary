@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.courtdiary.model.Case
+import com.courtdiary.model.CourtCase
 import com.courtdiary.ui.theme.*
 import com.courtdiary.utils.isWithinDays
 import com.courtdiary.utils.toDisplayDate
@@ -35,7 +35,7 @@ fun CaseDetailScreen(
     onEditCase: () -> Unit
 ) {
     val context = LocalContext.current
-    var case by remember { mutableStateOf<Case?>(null) }
+    var case by remember { mutableStateOf<CourtCase?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -137,7 +137,7 @@ fun CaseDetailScreen(
                     }
                 }
 
-                // ── Case Information Card
+                // ── CourtCase Information Card
                 DetailCard(title = "Case Information") {
                     DetailRow(Icons.Filled.Tag, "Case Number", c.caseNumber)
                     DetailRow(Icons.Filled.AccountBalance, "Court", c.courtName.ifBlank { "—" })

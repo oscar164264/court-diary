@@ -4,14 +4,14 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.courtdiary.model.Case
+import com.courtdiary.model.CourtCase
 
 /**
  * Room database singleton.
  * Version 1 – initial schema.
  */
 @Database(
-    entities = [Case::class],
+    entities = [CourtCase::class],
     version = 1,
     exportSchema = false
 )

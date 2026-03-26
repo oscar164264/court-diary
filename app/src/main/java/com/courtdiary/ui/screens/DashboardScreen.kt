@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.courtdiary.model.Case
+import com.courtdiary.model.CourtCase
 import com.courtdiary.ui.theme.*
 import com.courtdiary.utils.isWithinDays
 import com.courtdiary.utils.toDisplayDate
@@ -138,7 +138,7 @@ fun DashboardScreen(
 
 @Composable
 fun CaseCard(
-    case: Case,
+    case: CourtCase,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -179,7 +179,7 @@ fun CaseCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Case number badge
+                    // CourtCase number badge
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = PrimaryBlue.copy(alpha = 0.1f)

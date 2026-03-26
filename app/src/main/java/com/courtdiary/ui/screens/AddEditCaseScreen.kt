@@ -14,7 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.courtdiary.model.Case
+import com.courtdiary.model.CourtCase
 import com.courtdiary.ui.theme.PrimaryBlue
 import com.courtdiary.utils.toDisplayDate
 import com.courtdiary.viewmodel.CaseResult
@@ -32,7 +32,7 @@ fun AddEditCaseScreen(
     val isEditMode = caseId != null
 
     // Load existing case if in edit mode
-    var existingCase by remember { mutableStateOf<Case?>(null) }
+    var existingCase by remember { mutableStateOf<CourtCase?>(null) }
     LaunchedEffect(caseId) {
         if (caseId != null) {
             existingCase = viewModel.getCaseById(caseId)
@@ -157,10 +157,10 @@ fun AddEditCaseScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // ── Section: Case Information
+            // ── Section: CourtCase Information
             FormSectionLabel("Case Information")
 
-            // Case Number (required)
+            // CourtCase Number (required)
             OutlinedTextField(
                 value = caseNumber,
                 onValueChange = {
@@ -237,7 +237,7 @@ fun AddEditCaseScreen(
                 errorText = nextHearingDateError
             )
 
-            // ── Section: Case Stages
+            // ── Section: CourtCase Stages
             Spacer(Modifier.height(4.dp))
             FormSectionLabel("Case Stages")
 
@@ -298,7 +298,7 @@ fun AddEditCaseScreen(
                     }
 
                     if (valid) {
-                        val case = Case(
+                        val case = CourtCase(
                             id = existingCase?.id ?: 0,
                             caseNumber = caseNumber.trim(),
                             courtName = courtName.trim(),

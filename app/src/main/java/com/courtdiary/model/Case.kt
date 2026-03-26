@@ -12,7 +12,7 @@ import androidx.room.PrimaryKey
     tableName = "cases",
     indices = [Index(value = ["caseNumber"], unique = true)]
 )
-data class Case(
+data class CourtCase(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
 

@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.courtdiary.model.Case
+import com.courtdiary.model.CourtCase
 import com.courtdiary.ui.theme.PrimaryBlue
 import com.courtdiary.viewmodel.CaseFilter
 import com.courtdiary.viewmodel.CaseViewModel
@@ -35,7 +35,7 @@ fun AllCasesScreen(
     val pastCases by viewModel.pastCases.collectAsState()
 
     // Determine which list to show
-    val displayCases: List<Case> = when {
+    val displayCases: List<CourtCase> = when {
         searchQuery.isNotBlank() -> searchResults
         activeFilter == CaseFilter.TODAY -> todayCases
         activeFilter == CaseFilter.UPCOMING -> upcomingCases

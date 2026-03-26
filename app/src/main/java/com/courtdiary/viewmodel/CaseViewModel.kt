@@ -10,7 +10,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.courtdiary.database.CaseDatabase
-import com.courtdiary.model.Case
+import com.courtdiary.model.CourtCase
 import com.courtdiary.notification.NotificationScheduler
 import com.courtdiary.repository.CaseRepository
 import com.courtdiary.utils.toEndOfDayMillis
@@ -62,13 +62,13 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     // ──────────────────────────────────────────
     // All cases
     // ──────────────────────────────────────────
-    val allCases: StateFlow<List<Case>> = repo.getAllCases()
+    val allCases: StateFlow<List<CourtCase>> = repo.getAllCases()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // ──────────────────────────────────────────
     // Today's cases
     // ──────────────────────────────────────────
-    val todayCases: StateFlow<List<Case>> = run {
+    val todayCases: StateFlow<List<CourtCase>> = run {
         val today = LocalDate.now()
         repo.getCasesByDate(today.toStartOfDayMillis(), today.toEndOfDayMillis())
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -77,7 +77,7 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     // ──────────────────────────────────────────
     // Upcoming cases (today + 7 days)
     // ──────────────────────────────────────────
-    val upcomingCases: StateFlow<List<Case>> = run {
+    val upcomingCases: StateFlow<List<CourtCase>> = run {
         val today = LocalDate.now()
         val end = today.plusDays(7)
         repo.getUpcomingCases(today.toStartOfDayMillis(), end.toEndOfDayMillis())
@@ -87,7 +87,7 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     // ──────────────────────────────────────────
     // Past cases
     // ──────────────────────────────────────────
-    val pastCases: StateFlow<List<Case>> = run {
+    val pastCases: StateFlow<List<CourtCase>> = run {
         val todayStart = LocalDate.now().toStartOfDayMillis()
         repo.getPastCases(todayStart)
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -116,7 +116,7 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     val activeFilter: StateFlow<CaseFilter> = _activeFilter
 
     /** Reactive search results from DB */
-    val searchResults: StateFlow<List<Case>> = _searchQuery
+    val searchResults: StateFlow<List<CourtCase>> = _searchQuery
         .debounce(300)
         .flatMapLatest { q ->
             if (q.isBlank()) repo.getAllCases() else repo.searchCases(q)
@@ -132,7 +132,7 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedCalendarDate = MutableStateFlow<LocalDate?>(null)
     val selectedCalendarDate: StateFlow<LocalDate?> = _selectedCalendarDate
 
-    val casesForSelectedDate: StateFlow<List<Case>> = _selectedCalendarDate
+    val casesForSelectedDate: StateFlow<List<CourtCase>> = _selectedCalendarDate
         .flatMapLatest { date ->
             if (date == null) flowOf(emptyList())
             else repo.getCasesByDate(date.toStartOfDayMillis(), date.toEndOfDayMillis())
@@ -151,13 +151,13 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     // CRUD
     // ──────────────────────────────────────────
 
-    fun insertCase(case: Case) {
+    fun insertCase(case: CourtCase) {
         viewModelScope.launch {
             try {
                 // Validate unique case number
                 val existing = repo.getCaseByCaseNumber(case.caseNumber)
                 if (existing != null) {
-                    _operationResult.emit(CaseResult.Error("Case number '${case.caseNumber}' already exists."))
+                    _operationResult.emit(CaseResult.Error("CourtCase number '${case.caseNumber}' already exists."))
                     return@launch
                 }
                 repo.insertCase(case)
@@ -170,13 +170,13 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateCase(case: Case) {
+    fun updateCase(case: CourtCase) {
         viewModelScope.launch {
             try {
                 // Check uniqueness excluding the current case id
                 val existing = repo.getCaseByCaseNumber(case.caseNumber)
                 if (existing != null && existing.id != case.id) {
-                    _operationResult.emit(CaseResult.Error("Case number '${case.caseNumber}' already in use."))
+                    _operationResult.emit(CaseResult.Error("CourtCase number '${case.caseNumber}' already in use."))
                     return@launch
                 }
                 repo.updateCase(case)
@@ -188,7 +188,7 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun deleteCase(case: Case) {
+    fun deleteCase(case: CourtCase) {
         viewModelScope.launch {
             try {
                 repo.deleteCase(case)
@@ -199,7 +199,7 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    suspend fun getCaseById(id: Int): Case? = repo.getCaseById(id)
+    suspend fun getCaseById(id: Int): CourtCase? = repo.getCaseById(id)
 
     // ──────────────────────────────────────────
     // Settings (DataStore)
@@ -253,8 +253,8 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     fun importFromJson(json: String) {
         viewModelScope.launch {
             try {
-                val type = object : TypeToken<List<Case>>() {}.type
-                val cases: List<Case> = gson.fromJson(json, type)
+                val type = object : TypeToken<List<CourtCase>>() {}.type
+                val cases: List<CourtCase> = gson.fromJson(json, type)
                 var imported = 0
                 cases.forEach { c ->
                     val existing = repo.getCaseByCaseNumber(c.caseNumber)
@@ -280,7 +280,7 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
 
             val today = LocalDate.now()
             val sampleCases = listOf(
-                Case(
+                CourtCase(
                     caseNumber = "CV-2024-001",
                     courtName = "Civil Court – Branch 3",
                     clientName = "Ahmed Al Mansouri",
@@ -291,7 +291,7 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
                     nextStage = "Final Arguments",
                     notes = "Client needs to prepare all original documents."
                 ),
-                Case(
+                CourtCase(
                     caseNumber = "CR-2024-078",
                     courtName = "Criminal Court",
                     clientName = "Sara Khalid",
@@ -301,7 +301,7 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
                     nextStage = "Witness Examination",
                     notes = "Bail application pending."
                 ),
-                Case(
+                CourtCase(
                     caseNumber = "FM-2023-215",
                     courtName = "Family Court",
                     clientName = "Hassan Ibrahim",
@@ -312,7 +312,7 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
                     nextStage = "Settlement Discussion",
                     notes = "Both parties agreed to mediation."
                 ),
-                Case(
+                CourtCase(
                     caseNumber = "CC-2024-042",
                     courtName = "Commercial Court",
                     clientName = "Al Noor Trading LLC",
