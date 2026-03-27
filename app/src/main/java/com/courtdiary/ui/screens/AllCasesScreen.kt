@@ -1,9 +1,11 @@
 package com.courtdiary.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -24,7 +26,8 @@ import com.courtdiary.viewmodel.CaseViewModel
 fun AllCasesScreen(
     viewModel: CaseViewModel,
     onCaseClick: (Int) -> Unit,
-    onAddCase: () -> Unit
+    onAddCase: () -> Unit,
+    onSettings: () -> Unit
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val activeFilter by viewModel.activeFilter.collectAsState()
@@ -53,6 +56,11 @@ fun AllCasesScreen(
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
+                    },
+                    actions = {
+                        IconButton(onClick = onSettings) {
+                            Icon(Icons.Filled.Settings, "Settings", tint = Color.White)
+                        }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryBlue)
                 )
@@ -156,10 +164,12 @@ private fun FilterChipRow(
     upcomingCount: Int,
     pastCount: Int
 ) {
+    // Horizontally scrollable so chips never wrap or get cut off on small screens
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         FilterChip(

@@ -34,7 +34,7 @@ import java.io.InputStreamReader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: CaseViewModel) {
+fun SettingsScreen(viewModel: CaseViewModel, onNavigateBack: (() -> Unit)? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -100,6 +100,13 @@ fun SettingsScreen(viewModel: CaseViewModel) {
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
+                },
+                navigationIcon = {
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.Filled.ArrowBack, "Back", tint = Color.White)
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryBlue)
             )

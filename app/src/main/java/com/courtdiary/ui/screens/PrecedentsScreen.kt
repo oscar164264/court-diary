@@ -27,7 +27,8 @@ import java.util.Locale
 fun PrecedentsScreen(
     viewModel: PrecedentViewModel,
     onAddPrecedent: () -> Unit,
-    onPrecedentClick: (Int) -> Unit
+    onPrecedentClick: (Int) -> Unit,
+    onSettings: () -> Unit
 ) {
     val precedents by viewModel.precedents.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -37,6 +38,11 @@ fun PrecedentsScreen(
             TopAppBar(
                 title = {
                     Text("Precedents", fontWeight = FontWeight.Bold, color = Color.White)
+                },
+                actions = {
+                    IconButton(onClick = onSettings) {
+                        Icon(Icons.Filled.Settings, "Settings", tint = Color.White)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryBlue)
             )

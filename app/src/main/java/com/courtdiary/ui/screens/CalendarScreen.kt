@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +37,8 @@ import java.util.Locale
 @Composable
 fun CalendarScreen(
     viewModel: CaseViewModel,
-    onCaseClick: (Int) -> Unit
+    onCaseClick: (Int) -> Unit,
+    onSettings: () -> Unit
 ) {
     var currentMonth by remember { mutableStateOf(YearMonth.now()) }
     val selectedDate by viewModel.selectedCalendarDate.collectAsState()
@@ -52,6 +54,11 @@ fun CalendarScreen(
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
+                },
+                actions = {
+                    IconButton(onClick = onSettings) {
+                        Icon(Settings, "Settings", tint = Color.White)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryBlue)
             )

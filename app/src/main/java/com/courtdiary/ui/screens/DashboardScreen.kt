@@ -29,7 +29,8 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun DashboardScreen(
     viewModel: CaseViewModel,
-    onCaseClick: (Int) -> Unit
+    onCaseClick: (Int) -> Unit,
+    onSettings: () -> Unit
 ) {
     val todayCases by viewModel.todayCases.collectAsState()
     val upcomingCases by viewModel.upcomingCases.collectAsState()
@@ -55,9 +56,12 @@ fun DashboardScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = PrimaryBlue
-                )
+                actions = {
+                    IconButton(onClick = onSettings) {
+                        Icon(Icons.Filled.Settings, "Settings", tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryBlue)
             )
         }
     ) { padding ->
