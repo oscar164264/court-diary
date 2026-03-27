@@ -22,18 +22,22 @@ import com.courtdiary.viewmodel.CaseViewModel
 import kotlinx.coroutines.launch
 
 private val STAGE_OPTIONS = listOf(
-    "Initial Hearing",
-    "Evidence Submission",
-    "Witness Examination",
+    "Filing",
+    "Summons",
+    "Warrant",
+    "News Paper Notice",
+    "SD",
+    "Charge Hearing",
+    "Examination In Chief",
     "Cross Examination",
-    "Expert Witness Testimony",
-    "Mediation",
-    "Settlement Discussion",
-    "Final Arguments",
+    "Bail Hearing",
+    "Argument",
+    "342",
     "Judgment",
-    "Appeal",
     "Execution",
-    "Case Closed"
+    "Petition Hearing",
+    "Document Submission",
+    "Written Statement"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
