@@ -16,6 +16,7 @@ import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.courtdiary.ui.screens.*
 import com.courtdiary.viewmodel.CaseViewModel
+import com.courtdiary.viewmodel.PrecedentViewModel
 
 // ──────────────────────────────────────────
 // Route constants
@@ -25,12 +26,18 @@ object Routes {
     const val ADD_CASE = "add_case"
     const val ALL_CASES = "all_cases"
     const val CALENDAR = "calendar"
+    const val PRECEDENTS = "precedents"
     const val SETTINGS = "settings"
     const val CASE_DETAIL = "case_detail/{caseId}"
     const val EDIT_CASE = "edit_case/{caseId}"
+    const val ADD_PRECEDENT = "add_precedent"
+    const val PRECEDENT_DETAIL = "precedent_detail/{precedentId}"
+    const val EDIT_PRECEDENT = "edit_precedent/{precedentId}"
 
     fun caseDetail(id: Int) = "case_detail/$id"
     fun editCase(id: Int) = "edit_case/$id"
+    fun precedentDetail(id: Int) = "precedent_detail/$id"
+    fun editPrecedent(id: Int) = "edit_precedent/$id"
 }
 
 // ──────────────────────────────────────────
@@ -43,24 +50,33 @@ data class BottomNavItem(
 )
 
 val bottomNavItems = listOf(
-    BottomNavItem("Dashboard", Icons.Filled.Dashboard, Routes.DASHBOARD),
-    BottomNavItem("Add Case", Icons.Filled.AddCircle, Routes.ADD_CASE),
-    BottomNavItem("Cases", Icons.Filled.Gavel, Routes.ALL_CASES),
-    BottomNavItem("Calendar", Icons.Filled.CalendarMonth, Routes.CALENDAR),
-    BottomNavItem("Settings", Icons.Filled.Settings, Routes.SETTINGS),
+    BottomNavItem("Dashboard",   Icons.Filled.Dashboard,     Routes.DASHBOARD),
+    BottomNavItem("Add Case",    Icons.Filled.AddCircle,     Routes.ADD_CASE),
+    BottomNavItem("Cases",       Icons.Filled.Gavel,         Routes.ALL_CASES),
+    BottomNavItem("Calendar",    Icons.Filled.CalendarMonth, Routes.CALENDAR),
+    BottomNavItem("Precedents",  Icons.Filled.LibraryBooks,  Routes.PRECEDENTS),
+    BottomNavItem("Settings",    Icons.Filled.Settings,      Routes.SETTINGS),
 )
 
 // Routes that should NOT show the bottom bar
-private val hideBottomBarRoutes = setOf(Routes.CASE_DETAIL, Routes.EDIT_CASE)
+private val hideBottomBarRoutes = setOf(
+    Routes.CASE_DETAIL,
+    Routes.EDIT_CASE,
+    Routes.ADD_PRECEDENT,
+    Routes.PRECEDENT_DETAIL,
+    Routes.EDIT_PRECEDENT
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CourtDiaryNavHost(viewModel: CaseViewModel) {
+fun CourtDiaryNavHost(
+    viewModel: CaseViewModel,
+    precedentViewModel: PrecedentViewModel
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    // Hide bottom bar on detail/edit screens
     val showBottomBar = currentDestination?.route?.let { route ->
         hideBottomBarRoutes.none { route.startsWith(it.substringBefore("{")) }
     } ?: true
@@ -146,9 +162,19 @@ fun CourtDiaryNavHost(viewModel: CaseViewModel) {
                 )
             }
 
+            composable(Routes.PRECEDENTS) {
+                PrecedentsScreen(
+                    viewModel = precedentViewModel,
+                    onAddPrecedent = { navController.navigate(Routes.ADD_PRECEDENT) },
+                    onPrecedentClick = { id -> navController.navigate(Routes.precedentDetail(id)) }
+                )
+            }
+
             composable(Routes.SETTINGS) {
                 SettingsScreen(viewModel = viewModel)
             }
+
+            // ── Case routes ──────────────────────────────────────────────
 
             composable(
                 route = Routes.CASE_DETAIL,
@@ -171,6 +197,41 @@ fun CourtDiaryNavHost(viewModel: CaseViewModel) {
                 AddEditCaseScreen(
                     viewModel = viewModel,
                     caseId = caseId,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // ── Precedent routes ─────────────────────────────────────────
+
+            composable(Routes.ADD_PRECEDENT) {
+                AddEditPrecedentScreen(
+                    viewModel = precedentViewModel,
+                    precedentId = null,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(
+                route = Routes.PRECEDENT_DETAIL,
+                arguments = listOf(navArgument("precedentId") { type = NavType.IntType })
+            ) { backStackEntry ->
+                val id = backStackEntry.arguments?.getInt("precedentId") ?: return@composable
+                PrecedentDetailScreen(
+                    viewModel = precedentViewModel,
+                    precedentId = id,
+                    onNavigateBack = { navController.popBackStack() },
+                    onEdit = { navController.navigate(Routes.editPrecedent(id)) }
+                )
+            }
+
+            composable(
+                route = Routes.EDIT_PRECEDENT,
+                arguments = listOf(navArgument("precedentId") { type = NavType.IntType })
+            ) { backStackEntry ->
+                val id = backStackEntry.arguments?.getInt("precedentId") ?: return@composable
+                AddEditPrecedentScreen(
+                    viewModel = precedentViewModel,
+                    precedentId = id,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

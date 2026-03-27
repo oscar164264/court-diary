@@ -2,6 +2,7 @@ package com.courtdiary.viewmodel
 
 import android.app.Application
 import android.content.Context
+import android.net.Uri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -10,14 +11,18 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.courtdiary.database.CaseDatabase
+import com.courtdiary.model.CaseDocument
 import com.courtdiary.model.CourtCase
 import com.courtdiary.notification.NotificationScheduler
+import com.courtdiary.repository.CaseDocumentRepository
 import com.courtdiary.repository.CaseRepository
+import com.courtdiary.utils.FileUtils
 import com.courtdiary.utils.toEndOfDayMillis
 import com.courtdiary.utils.toStartOfDayMillis
 import java.time.ZoneId
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -31,6 +36,7 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "co
 object PreferencesKeys {
     val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
     val DARK_MODE_ENABLED = booleanPreferencesKey("dark_mode_enabled")
+    val SMS_REMINDER_ENABLED = booleanPreferencesKey("sms_reminder_enabled")
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -53,10 +59,12 @@ enum class CaseFilter { ALL, TODAY, UPCOMING, PAST }
 class CaseViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repo: CaseRepository
+    private val docRepo: CaseDocumentRepository
 
     init {
-        val dao = CaseDatabase.getDatabase(application).caseDao()
-        repo = CaseRepository(dao)
+        val db = CaseDatabase.getDatabase(application)
+        repo = CaseRepository(db.caseDao())
+        docRepo = CaseDocumentRepository(db.caseDocumentDao())
     }
 
     // ──────────────────────────────────────────
@@ -235,6 +243,19 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    val smsReminderEnabled: StateFlow<Boolean> =
+        getApplication<Application>().dataStore.data
+            .map { prefs -> prefs[PreferencesKeys.SMS_REMINDER_ENABLED] ?: false }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setSmsReminderEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            getApplication<Application>().dataStore.edit { prefs ->
+                prefs[PreferencesKeys.SMS_REMINDER_ENABLED] = enabled
+            }
+        }
+    }
+
     // ──────────────────────────────────────────
     // Backup & Restore
     // ──────────────────────────────────────────
@@ -268,6 +289,36 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _operationResult.emit(CaseResult.Error("Import failed: ${e.message}"))
             }
+        }
+    }
+
+    // ──────────────────────────────────────────
+    // Documents
+    // ──────────────────────────────────────────
+
+    fun getDocumentsForCase(caseId: Int): Flow<List<CaseDocument>> =
+        docRepo.getDocumentsForCase(caseId)
+
+    /**
+     * Copies the file at [uri] into app-internal storage and saves the record to the DB.
+     * Returns true on success.
+     */
+    fun attachDocument(caseId: Int, uri: Uri, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val doc = FileUtils.copyToAppStorage(getApplication(), uri, caseId)
+            if (doc != null) {
+                docRepo.insertDocument(doc)
+                onResult(true)
+            } else {
+                onResult(false)
+            }
+        }
+    }
+
+    fun deleteDocument(doc: CaseDocument) {
+        viewModelScope.launch(Dispatchers.IO) {
+            File(doc.filePath).delete()   // remove from storage
+            docRepo.deleteDocument(doc)   // remove from DB
         }
     }
 

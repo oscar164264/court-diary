@@ -13,12 +13,13 @@ import androidx.compose.runtime.getValue
 import com.courtdiary.ui.navigation.CourtDiaryNavHost
 import com.courtdiary.ui.theme.CourtDiaryTheme
 import com.courtdiary.viewmodel.CaseViewModel
+import com.courtdiary.viewmodel.PrecedentViewModel
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: CaseViewModel by viewModels()
+    private val precedentViewModel: PrecedentViewModel by viewModels()
 
-    // Permission launcher for POST_NOTIFICATIONS (Android 13+)
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { /* result handled silently */ }
@@ -26,19 +27,20 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Request notification permission on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        // Seed sample data on first launch
         viewModel.seedSampleData()
 
         setContent {
             val darkMode by viewModel.darkModeEnabled.collectAsState()
 
             CourtDiaryTheme(darkTheme = darkMode) {
-                CourtDiaryNavHost(viewModel = viewModel)
+                CourtDiaryNavHost(
+                    viewModel = viewModel,
+                    precedentViewModel = precedentViewModel
+                )
             }
         }
     }

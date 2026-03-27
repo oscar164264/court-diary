@@ -1,11 +1,14 @@
 package com.courtdiary.ui.screens
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +41,23 @@ fun SettingsScreen(viewModel: CaseViewModel) {
 
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
     val darkModeEnabled by viewModel.darkModeEnabled.collectAsState()
+    val smsReminderEnabled by viewModel.smsReminderEnabled.collectAsState()
+
+    // Used to complete SMS enable after permission is granted
+    var pendingSmsEnable by remember { mutableStateOf(false) }
+
+    val smsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && pendingSmsEnable) {
+            viewModel.setSmsReminderEnabled(true)
+        } else if (!granted) {
+            scope.launch {
+                snackbarHostState.showSnackbar("SMS permission denied — client reminders won't be sent")
+            }
+        }
+        pendingSmsEnable = false
+    }
 
     var isExporting by remember { mutableStateOf(false) }
 
@@ -117,6 +137,31 @@ fun SettingsScreen(viewModel: CaseViewModel) {
                     subtitle = "Switch to dark theme",
                     checked = darkModeEnabled,
                     onCheckedChange = viewModel::setDarkModeEnabled
+                )
+
+                HorizontalDivider(Modifier.padding(horizontal = 8.dp))
+
+                // SMS reminder toggle
+                SettingsToggleRow(
+                    icon = Icons.Filled.Sms,
+                    title = "SMS Reminders to Clients",
+                    subtitle = "Auto-send SMS to client the day before their hearing",
+                    checked = smsReminderEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            val hasPermission = ContextCompat.checkSelfPermission(
+                                context, Manifest.permission.SEND_SMS
+                            ) == PackageManager.PERMISSION_GRANTED
+                            if (hasPermission) {
+                                viewModel.setSmsReminderEnabled(true)
+                            } else {
+                                pendingSmsEnable = true
+                                smsPermissionLauncher.launch(Manifest.permission.SEND_SMS)
+                            }
+                        } else {
+                            viewModel.setSmsReminderEnabled(false)
+                        }
+                    }
                 )
             }
 

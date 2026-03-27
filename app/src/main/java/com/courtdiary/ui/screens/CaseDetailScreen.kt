@@ -3,6 +3,9 @@ package com.courtdiary.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,14 +20,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.courtdiary.model.CaseDocument
 import com.courtdiary.model.CourtCase
 import com.courtdiary.ui.theme.*
+import com.courtdiary.utils.FileUtils
 import com.courtdiary.utils.isWithinDays
 import com.courtdiary.utils.toDisplayDate
 import com.courtdiary.utils.toDisplayDateOrDash
 import com.courtdiary.viewmodel.CaseResult
 import com.courtdiary.viewmodel.CaseViewModel
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +44,22 @@ fun CaseDetailScreen(
     val context = LocalContext.current
     var case by remember { mutableStateOf<CourtCase?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var isAttaching by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val documents by viewModel.getDocumentsForCase(caseId).collectAsState(initial = emptyList())
+
+    val pickDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            isAttaching = true
+            viewModel.attachDocument(caseId, it) { success ->
+                isAttaching = false
+                if (!success) Toast.makeText(context, "Failed to attach document", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     // Load case
     LaunchedEffect(caseId) {
@@ -218,6 +240,54 @@ fun CaseDetailScreen(
                     }
                 }
 
+                // ── Documents Card
+                DetailCard(title = "Documents") {
+                    if (documents.isEmpty() && !isAttaching) {
+                        Text(
+                            "No documents attached yet.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
+                    documents.forEach { doc ->
+                        DocumentRow(
+                            doc = doc,
+                            onOpen = { openDocument(context, doc) },
+                            onDelete = { viewModel.deleteDocument(doc) }
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    if (isAttaching) {
+                        Row(
+                            Modifier.padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Text("Attaching…", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            pickDocument.launch(
+                                arrayOf(
+                                    "application/pdf",
+                                    "application/msword",
+                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    "image/*"
+                                )
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.AttachFile, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Attach Document (PDF / Word / Image)")
+                    }
+                }
+
                 Spacer(Modifier.height(16.dp))
             }
         } ?: run {
@@ -292,8 +362,101 @@ private fun DetailRow(
 }
 
 // ──────────────────────────────────────────
+// Document row
+// ──────────────────────────────────────────
+
+@Composable
+private fun DocumentRow(
+    doc: CaseDocument,
+    onOpen: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Remove Document") },
+            text = { Text("Remove \"${doc.fileName}\" from this case?") },
+            confirmButton = {
+                TextButton(
+                    onClick = { onDelete(); showDeleteDialog = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = UrgentRed)
+                ) { Text("Remove") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    val icon = when {
+        doc.mimeType.startsWith("image/") -> Icons.Filled.Image
+        doc.mimeType == "application/pdf" -> Icons.Filled.PictureAsPdf
+        doc.mimeType.contains("word") || doc.mimeType.contains("document") -> Icons.Filled.Article
+        else -> Icons.Filled.AttachFile
+    }
+    val iconTint = when {
+        doc.mimeType.startsWith("image/") -> Color(0xFF4CAF50)
+        doc.mimeType == "application/pdf" -> Color(0xFFE53935)
+        doc.mimeType.contains("word") || doc.mimeType.contains("document") -> Color(0xFF1565C0)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, Modifier.size(28.dp), tint = iconTint)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                doc.fileName,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                FileUtils.formatFileSize(doc.fileSize),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        IconButton(onClick = onOpen) {
+            Icon(Icons.Filled.OpenInNew, "Open", tint = PrimaryBlue)
+        }
+        IconButton(onClick = { showDeleteDialog = true }) {
+            Icon(Icons.Filled.Delete, "Remove", tint = UrgentRed)
+        }
+    }
+}
+
+// ──────────────────────────────────────────
 // Intent helpers
 // ──────────────────────────────────────────
+
+/** Opens the file with the appropriate app installed on the device. */
+private fun openDocument(context: Context, doc: CaseDocument) {
+    val file = File(doc.filePath)
+    if (!file.exists()) {
+        Toast.makeText(context, "File not found", Toast.LENGTH_SHORT).show()
+        return
+    }
+    val uri = FileUtils.getFileProviderUri(context, file)
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(uri, doc.mimeType)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    try {
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "No app found to open this file", Toast.LENGTH_SHORT).show()
+    }
+}
 
 /** Opens the phone dialer with the given number pre-filled. */
 private fun dialPhone(context: Context, phone: String) {
