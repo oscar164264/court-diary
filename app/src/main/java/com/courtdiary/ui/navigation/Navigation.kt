@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -107,10 +108,10 @@ fun CourtDiaryNavHost(
             navController = navController,
             startDestination = Routes.DASHBOARD,
             modifier = Modifier.padding(innerPadding),
-            enterTransition  = { fadeIn(tween(180)) + slideInHorizontally({ it / 5 }, tween(180)) },
-            exitTransition   = { fadeOut(tween(180)) + slideOutHorizontally({ -it / 5 }, tween(180)) },
-            popEnterTransition  = { fadeIn(tween(180)) + slideInHorizontally({ -it / 5 }, tween(180)) },
-            popExitTransition   = { fadeOut(tween(180)) + slideOutHorizontally({ it / 5 }, tween(180)) }
+            enterTransition  = { fadeIn(tween(180)) + slideInHorizontally(initialOffsetX = { it / 5 }, animationSpec = tween(180)) },
+            exitTransition   = { fadeOut(tween(180)) + slideOutHorizontally(targetOffsetX = { -it / 5 }, animationSpec = tween(180)) },
+            popEnterTransition  = { fadeIn(tween(180)) + slideInHorizontally(initialOffsetX = { -it / 5 }, animationSpec = tween(180)) },
+            popExitTransition   = { fadeOut(tween(180)) + slideOutHorizontally(targetOffsetX = { it / 5 }, animationSpec = tween(180)) }
         ) {
             composable(Routes.DASHBOARD) {
                 DashboardScreen(
