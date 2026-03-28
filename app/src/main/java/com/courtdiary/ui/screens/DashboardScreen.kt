@@ -148,7 +148,7 @@ fun CaseCard(
 ) {
     // Determine urgency colour
     val isUrgent = case.nextHearingDate.isWithinDays(3)
-    val isVeryUrgent = case.nextHearingDate.isWithinDays(1)
+    val isVeryUrgent = case.nextHearingDate.isWithinDays(0)  // today only
 
     val accentColor = when {
         isVeryUrgent -> UrgentRed

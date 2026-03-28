@@ -46,15 +46,15 @@ fun SettingsScreen(viewModel: CaseViewModel, onNavigateBack: (() -> Unit)? = nul
     // Used to complete SMS enable after permission is granted
     var pendingSmsEnable by remember { mutableStateOf(false) }
 
+    var showSmsPermissionDialog by remember { mutableStateOf(false) }
+
     val smsPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted && pendingSmsEnable) {
             viewModel.setSmsReminderEnabled(true)
         } else if (!granted) {
-            scope.launch {
-                snackbarHostState.showSnackbar("SMS permission denied — client reminders won't be sent")
-            }
+            showSmsPermissionDialog = true
         }
         pendingSmsEnable = false
     }
@@ -89,6 +89,38 @@ fun SettingsScreen(viewModel: CaseViewModel, onNavigateBack: (() -> Unit)? = nul
                     snackbarHostState.showSnackbar(result.message)
             }
         }
+    }
+
+    // Dialog shown when SMS permission is blocked by the phone's security system
+    if (showSmsPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showSmsPermissionDialog = false },
+            icon = { Icon(Icons.Filled.Sms, null, tint = PrimaryBlue) },
+            title = { Text("SMS Permission Blocked") },
+            text = {
+                Text(
+                    "Your phone's security system blocked SMS permission.\n\n" +
+                    "To fix this:\n" +
+                    "1. Tap \"Open Settings\" below\n" +
+                    "2. Tap \"Permissions\"\n" +
+                    "3. Tap \"SMS\" and set it to \"Allow\"\n" +
+                    "4. Come back and turn on SMS Reminders"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showSmsPermissionDialog = false
+                    val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = android.net.Uri.parse("package:${context.packageName}")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                }) { Text("Open Settings") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSmsPermissionDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 
     Scaffold(
@@ -167,6 +199,27 @@ fun SettingsScreen(viewModel: CaseViewModel, onNavigateBack: (() -> Unit)? = nul
                             }
                         } else {
                             viewModel.setSmsReminderEnabled(false)
+                        }
+                    }
+                )
+
+                HorizontalDivider(Modifier.padding(horizontal = 8.dp))
+
+                // Battery optimization exemption
+                SettingsActionRow(
+                    icon = Icons.Filled.BatteryAlert,
+                    title = "Fix Background Notifications",
+                    subtitle = "Exempt app from battery saver so alarms fire reliably",
+                    onClick = {
+                        val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M &&
+                            !pm.isIgnoringBatteryOptimizations(context.packageName)) {
+                            val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = android.net.Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
+                        } else {
+                            scope.launch { snackbarHostState.showSnackbar("Already optimized — notifications will fire reliably") }
                         }
                     }
                 )
