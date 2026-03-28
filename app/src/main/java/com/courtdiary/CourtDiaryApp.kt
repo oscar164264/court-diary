@@ -16,7 +16,7 @@ class CourtDiaryApp : Application() {
         // Create notification channel (required on API 26+)
         NotificationHelper.createNotificationChannel(this)
 
-        // Schedule daily reminder worker
-        NotificationScheduler.schedule(this)
+        // Schedule daily reminder alarm (safe — handles missing permission gracefully)
+        try { NotificationScheduler.schedule(this) } catch (_: Exception) {}
     }
 }
