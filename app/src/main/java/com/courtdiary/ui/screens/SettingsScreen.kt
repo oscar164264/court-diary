@@ -34,7 +34,11 @@ import java.io.InputStreamReader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: CaseViewModel, onNavigateBack: (() -> Unit)? = null) {
+fun SettingsScreen(
+    viewModel: CaseViewModel,
+    onNavigateBack: (() -> Unit)? = null,
+    onNavigateToPrecedents: (() -> Unit)? = null
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -226,6 +230,20 @@ fun SettingsScreen(viewModel: CaseViewModel, onNavigateBack: (() -> Unit)? = nul
             }
 
             Spacer(Modifier.height(8.dp))
+
+            // ── Navigation Section (quick links)
+            if (onNavigateToPrecedents != null) {
+                SettingsSectionLabel("Navigation")
+                SettingsCard {
+                    SettingsActionRow(
+                        icon = Icons.Filled.LibraryBooks,
+                        title = "Precedents",
+                        subtitle = "Browse and manage legal precedents",
+                        onClick = onNavigateToPrecedents
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+            }
 
             // ── Backup & Restore Section
             SettingsSectionLabel("Backup & Restore")

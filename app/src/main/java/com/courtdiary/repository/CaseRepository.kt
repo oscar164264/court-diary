@@ -36,6 +36,9 @@ class CaseRepository(private val dao: CaseDao) {
     fun searchCases(query: String): Flow<List<CourtCase>> =
         dao.searchCases(query)
 
+    fun getCasesByStatus(status: String): Flow<List<CourtCase>> =
+        dao.getCasesByStatus(status)
+
     /** Returns null when the case number is available, or the conflicting CourtCase when it exists. */
     suspend fun getCaseByCaseNumber(caseNumber: String): CourtCase? =
         dao.getCaseByCaseNumber(caseNumber)

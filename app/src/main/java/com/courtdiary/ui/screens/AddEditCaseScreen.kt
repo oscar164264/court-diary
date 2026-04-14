@@ -21,6 +21,8 @@ import com.courtdiary.viewmodel.CaseResult
 import com.courtdiary.viewmodel.CaseViewModel
 import kotlinx.coroutines.launch
 
+private val STATUS_OPTIONS = listOf("Active", "Adjourned", "Disposed", "Withdrawn")
+
 private val STAGE_OPTIONS = listOf(
     "Filing",
     "Summons",
@@ -68,6 +70,9 @@ fun AddEditCaseScreen(
     var lastStage by remember { mutableStateOf("") }
     var nextStage by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf("Active") }
+    var opposingParty by remember { mutableStateOf("") }
+    var opposingCounsel by remember { mutableStateOf("") }
 
     // Populate form when editing
     LaunchedEffect(existingCase) {
@@ -81,6 +86,9 @@ fun AddEditCaseScreen(
             lastStage = c.lastStage
             nextStage = c.nextStage
             notes = c.notes
+            status = c.status
+            opposingParty = c.opposingParty
+            opposingCounsel = c.opposingCounsel
         }
     }
 
@@ -204,6 +212,37 @@ fun AddEditCaseScreen(
                 singleLine = true
             )
 
+            // Status
+            StageDropdown(
+                label = "Case Status",
+                value = status,
+                onValueChange = { status = it },
+                icon = Icons.Filled.Flag,
+                options = STATUS_OPTIONS
+            )
+
+            // ── Section: Opponent Information
+            Spacer(Modifier.height(4.dp))
+            FormSectionLabel("Opponent Information")
+
+            OutlinedTextField(
+                value = opposingParty,
+                onValueChange = { opposingParty = it },
+                label = { Text("Opposing Party") },
+                leadingIcon = { Icon(Icons.Filled.People, null) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = opposingCounsel,
+                onValueChange = { opposingCounsel = it },
+                label = { Text("Opposing Counsel") },
+                leadingIcon = { Icon(Icons.Filled.Person, null) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
             // ── Section: Client Information
             Spacer(Modifier.height(4.dp))
             FormSectionLabel("Client Information")
@@ -323,7 +362,11 @@ fun AddEditCaseScreen(
                             nextHearingDate = nextHearingDate!!,
                             lastStage = lastStage.trim(),
                             nextStage = nextStage.trim(),
-                            notes = notes.trim()
+                            notes = notes.trim(),
+                            status = status,
+                            opposingParty = opposingParty.trim(),
+                            opposingCounsel = opposingCounsel.trim(),
+                            createdAt = existingCase?.createdAt ?: System.currentTimeMillis()
                         )
                         if (isEditMode) {
                             viewModel.updateCase(case)
@@ -411,7 +454,8 @@ private fun StageDropdown(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    options: List<String> = STAGE_OPTIONS
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -435,7 +479,7 @@ private fun StageDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            STAGE_OPTIONS.forEach { option ->
+            options.forEach { option ->
                 DropdownMenuItem(
                     text = { Text(option) },
                     onClick = {

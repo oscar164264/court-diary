@@ -8,9 +8,12 @@ import android.content.pm.PackageManager
 import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import com.courtdiary.database.CaseDatabase
 import com.courtdiary.repository.CaseRepository
 import com.courtdiary.utils.SmsHelper
+import com.courtdiary.widget.CourtDiaryWidget
 import com.courtdiary.viewmodel.PreferencesKeys
 import com.courtdiary.viewmodel.dataStore
 import kotlinx.coroutines.CoroutineScope
@@ -100,6 +103,15 @@ class AlarmReceiver : BroadcastReceiver() {
                         }
                     }
                 }
+                // ── Refresh home screen widget ───────────────────────────────
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                val widgetIds = appWidgetManager.getAppWidgetIds(
+                    ComponentName(context, CourtDiaryWidget::class.java)
+                )
+                widgetIds.forEach { id ->
+                    CourtDiaryWidget.updateWidget(context, appWidgetManager, id)
+                }
+
             } finally {
                 wakeLock.release()
                 pendingResult.finish()

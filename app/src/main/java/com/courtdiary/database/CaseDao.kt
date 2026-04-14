@@ -71,15 +71,20 @@ interface CaseDao {
     )
     fun getPastCases(today: Long): Flow<List<CourtCase>>
 
-    /** Search cases by case number, client name, or phone number. */
+    /** Search cases by case number, client name, phone number, or court name. */
     @Query(
         """SELECT * FROM cases
            WHERE caseNumber LIKE '%' || :query || '%'
               OR clientName LIKE '%' || :query || '%'
               OR clientPhone LIKE '%' || :query || '%'
+              OR courtName LIKE '%' || :query || '%'
            ORDER BY nextHearingDate ASC"""
     )
     fun searchCases(query: String): Flow<List<CourtCase>>
+
+    /** Stream cases filtered by status. */
+    @Query("SELECT * FROM cases WHERE status = :status ORDER BY nextHearingDate ASC")
+    fun getCasesByStatus(status: String): Flow<List<CourtCase>>
 
     /** Check whether a case with the given number exists (returns null if not). */
     @Query("SELECT * FROM cases WHERE caseNumber = :caseNumber LIMIT 1")

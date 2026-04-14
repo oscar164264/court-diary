@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -20,10 +21,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.courtdiary.model.CaseDocument
 import com.courtdiary.model.CourtCase
+import com.courtdiary.model.FeeEntry
+import com.courtdiary.model.HearingEntry
 import com.courtdiary.ui.theme.*
 import com.courtdiary.utils.FileUtils
 import com.courtdiary.utils.isWithinDays
@@ -48,6 +52,37 @@ fun CaseDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     val documents by viewModel.getDocumentsForCase(caseId).collectAsState(initial = emptyList())
+    val hearingEntries by viewModel.getHearingEntriesForCase(caseId).collectAsState(initial = emptyList())
+    val feeEntries by viewModel.getFeeEntriesForCase(caseId).collectAsState(initial = emptyList())
+    val totalCharged by viewModel.getTotalCharged(caseId).collectAsState(initial = 0.0)
+    val totalPaid by viewModel.getTotalPaid(caseId).collectAsState(initial = 0.0)
+
+    var showAddHearingDialog by remember { mutableStateOf(false) }
+    var showAddFeeDialog by remember { mutableStateOf(false) }
+
+    // ── Add Hearing Dialog
+    if (showAddHearingDialog) {
+        AddHearingDialog(
+            caseId = caseId,
+            onDismiss = { showAddHearingDialog = false },
+            onConfirm = { entry ->
+                viewModel.addHearingEntry(entry)
+                showAddHearingDialog = false
+            }
+        )
+    }
+
+    // ── Add Fee Dialog
+    if (showAddFeeDialog) {
+        AddFeeDialog(
+            caseId = caseId,
+            onDismiss = { showAddFeeDialog = false },
+            onConfirm = { entry ->
+                viewModel.addFeeEntry(entry)
+                showAddFeeDialog = false
+            }
+        )
+    }
 
     val pickDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -163,6 +198,14 @@ fun CaseDetailScreen(
                 DetailCard(title = "Case Information") {
                     DetailRow(Icons.Filled.Tag, "Case Number", c.caseNumber)
                     DetailRow(Icons.Filled.AccountBalance, "Court", c.courtName.ifBlank { "—" })
+                    val statusColor = when (c.status) {
+                        "Active" -> SafeGreen
+                        "Adjourned" -> WarningOrange
+                        "Disposed" -> PrimaryBlue
+                        "Withdrawn" -> UrgentRed
+                        else -> MaterialTheme.colorScheme.onSurface
+                    }
+                    DetailRow(Icons.Filled.Flag, "Status", c.status, valueColor = statusColor)
                 }
 
                 // ── Client Card
@@ -202,6 +245,14 @@ fun CaseDetailScreen(
                     }
                 }
 
+                // ── Opponent Card
+                if (c.opposingParty.isNotBlank() || c.opposingCounsel.isNotBlank()) {
+                    DetailCard(title = "Opponent Information") {
+                        DetailRow(Icons.Filled.People, "Opposing Party", c.opposingParty.ifBlank { "—" })
+                        DetailRow(Icons.Filled.Person, "Opposing Counsel", c.opposingCounsel.ifBlank { "—" })
+                    }
+                }
+
                 // ── Hearing Dates Card
                 DetailCard(title = "Hearing Dates") {
                     DetailRow(
@@ -237,6 +288,113 @@ fun CaseDetailScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 4.dp)
                         )
+                    }
+                }
+
+                // ── Hearing History Card
+                DetailCard(title = "Hearing History") {
+                    if (hearingEntries.isEmpty()) {
+                        Text(
+                            "No hearing records yet.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    } else {
+                        hearingEntries.forEach { entry ->
+                            HearingEntryRow(
+                                entry = entry,
+                                onDelete = { viewModel.deleteHearingEntry(entry) }
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { showAddHearingDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Log Hearing")
+                    }
+                }
+
+                // ── Fee Tracking Card
+                DetailCard(title = "Fee Tracking") {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(8.dp),
+                            color = SafeGreen.copy(alpha = 0.12f)
+                        ) {
+                            Column(Modifier.padding(10.dp)) {
+                                Text("Charged", style = MaterialTheme.typography.labelSmall, color = SafeGreen)
+                                Text(
+                                    "৳ %.2f".format(totalCharged),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SafeGreen
+                                )
+                            }
+                        }
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(8.dp),
+                            color = PrimaryBlue.copy(alpha = 0.12f)
+                        ) {
+                            Column(Modifier.padding(10.dp)) {
+                                Text("Paid", style = MaterialTheme.typography.labelSmall, color = PrimaryBlue)
+                                Text(
+                                    "৳ %.2f".format(totalPaid),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PrimaryBlue
+                                )
+                            }
+                        }
+                        val outstanding = totalCharged - totalPaid
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(8.dp),
+                            color = (if (outstanding > 0) UrgentRed else SafeGreen).copy(alpha = 0.12f)
+                        ) {
+                            Column(Modifier.padding(10.dp)) {
+                                Text("Due", style = MaterialTheme.typography.labelSmall,
+                                    color = if (outstanding > 0) UrgentRed else SafeGreen)
+                                Text(
+                                    "৳ %.2f".format(outstanding),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (outstanding > 0) UrgentRed else SafeGreen
+                                )
+                            }
+                        }
+                    }
+
+                    if (feeEntries.isNotEmpty()) {
+                        HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                        feeEntries.forEach { entry ->
+                            FeeEntryRow(
+                                entry = entry,
+                                onDelete = { viewModel.deleteFeeEntry(entry) }
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { showAddFeeDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Add Fee Entry")
                     }
                 }
 
@@ -466,13 +624,276 @@ private fun dialPhone(context: Context, phone: String) {
     context.startActivity(intent)
 }
 
+// ──────────────────────────────────────────
+// Hearing entry row
+// ──────────────────────────────────────────
+
+@Composable
+private fun HearingEntryRow(entry: HearingEntry, onDelete: () -> Unit) {
+    var showDelete by remember { mutableStateOf(false) }
+    if (showDelete) {
+        AlertDialog(
+            onDismissRequest = { showDelete = false },
+            title = { Text("Remove Entry") },
+            text = { Text("Remove this hearing record?") },
+            confirmButton = {
+                TextButton(onClick = { onDelete(); showDelete = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = UrgentRed)) { Text("Remove") }
+            },
+            dismissButton = { TextButton(onClick = { showDelete = false }) { Text("Cancel") } }
+        )
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(Icons.Filled.Gavel, null, Modifier.size(18.dp).padding(top = 2.dp),
+            tint = PrimaryBlue)
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                entry.date.toDisplayDate(),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold
+            )
+            if (entry.stage.isNotBlank()) Text("Stage: ${entry.stage}", style = MaterialTheme.typography.bodySmall)
+            if (entry.outcome.isNotBlank()) Text("Outcome: ${entry.outcome}", style = MaterialTheme.typography.bodySmall)
+            if (entry.notes.isNotBlank()) Text(entry.notes, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        IconButton(onClick = { showDelete = true }, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Filled.Delete, null, tint = UrgentRed, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+// ──────────────────────────────────────────
+// Fee entry row
+// ──────────────────────────────────────────
+
+@Composable
+private fun FeeEntryRow(entry: FeeEntry, onDelete: () -> Unit) {
+    var showDelete by remember { mutableStateOf(false) }
+    if (showDelete) {
+        AlertDialog(
+            onDismissRequest = { showDelete = false },
+            title = { Text("Remove Entry") },
+            text = { Text("Remove this fee record?") },
+            confirmButton = {
+                TextButton(onClick = { onDelete(); showDelete = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = UrgentRed)) { Text("Remove") }
+            },
+            dismissButton = { TextButton(onClick = { showDelete = false }) { Text("Cancel") } }
+        )
+    }
+    val isCharged = entry.type == "CHARGED"
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            if (isCharged) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+            null, Modifier.size(18.dp),
+            tint = if (isCharged) WarningOrange else SafeGreen
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                "${if (isCharged) "Charged" else "Paid"}  ৳ %.2f".format(entry.amount),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = if (isCharged) WarningOrange else SafeGreen
+            )
+            if (entry.description.isNotBlank())
+                Text(entry.description, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(entry.date.toDisplayDate(), style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        IconButton(onClick = { showDelete = true }, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Filled.Delete, null, tint = UrgentRed, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+// ──────────────────────────────────────────
+// Add Hearing Dialog
+// ──────────────────────────────────────────
+
+private val OUTCOME_OPTIONS = listOf(
+    "Adjourned", "Part Heard", "Arguments Heard", "Judgment Reserved",
+    "Disposed", "Withdrawn", "Witness Examined", "Documents Submitted"
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddHearingDialog(
+    caseId: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (HearingEntry) -> Unit
+) {
+    var date by remember { mutableStateOf(System.currentTimeMillis()) }
+    var stage by remember { mutableStateOf("") }
+    var outcome by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var outcomeExpanded by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val state = rememberDatePickerState(initialSelectedDateMillis = date)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { date = it }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
+        ) { DatePicker(state = state) }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Log Hearing", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Date
+                OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.CalendarToday, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(date.toDisplayDate())
+                }
+                // Stage
+                OutlinedTextField(
+                    value = stage,
+                    onValueChange = { stage = it },
+                    label = { Text("Stage") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                // Outcome dropdown
+                ExposedDropdownMenuBox(
+                    expanded = outcomeExpanded,
+                    onExpandedChange = { outcomeExpanded = it },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = outcome,
+                        onValueChange = { outcome = it },
+                        label = { Text("Outcome") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(outcomeExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        singleLine = true
+                    )
+                    ExposedDropdownMenu(
+                        expanded = outcomeExpanded,
+                        onDismissRequest = { outcomeExpanded = false }
+                    ) {
+                        OUTCOME_OPTIONS.forEach { opt ->
+                            DropdownMenuItem(text = { Text(opt) }, onClick = {
+                                outcome = opt; outcomeExpanded = false
+                            })
+                        }
+                    }
+                }
+                // Notes
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onConfirm(HearingEntry(caseId = caseId, date = date, stage = stage.trim(),
+                    outcome = outcome.trim(), notes = notes.trim()))
+            }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+// ──────────────────────────────────────────
+// Add Fee Dialog
+// ──────────────────────────────────────────
+
+@Composable
+private fun AddFeeDialog(
+    caseId: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (FeeEntry) -> Unit
+) {
+    var type by remember { mutableStateOf("CHARGED") }
+    var amount by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var amountError by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Fee Entry", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Type toggle
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("CHARGED", "PAID").forEach { t ->
+                        FilterChip(
+                            selected = type == t,
+                            onClick = { type = t },
+                            label = { Text(t.lowercase().replaceFirstChar { it.uppercase() }) }
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it; amountError = false },
+                    label = { Text("Amount (৳)") },
+                    isError = amountError,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description (optional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val parsed = amount.toDoubleOrNull()
+                if (parsed == null || parsed <= 0) {
+                    amountError = true
+                    return@TextButton
+                }
+                onConfirm(FeeEntry(caseId = caseId, type = type, amount = parsed,
+                    description = description.trim()))
+            }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
 /**
  * Opens WhatsApp with the phone number.
  * Strips non-numeric characters (except leading +) for the wa.me deep link.
  */
 private fun openWhatsApp(context: Context, phone: String) {
-    val cleaned = phone.replace(Regex("[^0-9+]"), "")
+    var cleaned = phone.replace(Regex("[^0-9+]"), "")
         .removePrefix("+") // wa.me does not want the '+'
+    if (!cleaned.startsWith("880")) {
+        cleaned = "880$cleaned"
+    }
     val intent = Intent(Intent.ACTION_VIEW).apply {
         data = Uri.parse("https://wa.me/$cleaned")
     }

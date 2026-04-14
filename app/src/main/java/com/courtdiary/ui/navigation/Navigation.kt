@@ -27,6 +27,7 @@ object Routes {
     const val CALENDAR       = "calendar"
     const val PRECEDENTS     = "precedents"
     const val SETTINGS       = "settings"
+    const val STATISTICS     = "statistics"
     const val CASE_DETAIL    = "case_detail/{caseId}"
     const val EDIT_CASE      = "edit_case/{caseId}"
     const val ADD_PRECEDENT  = "add_precedent"
@@ -41,13 +42,12 @@ object Routes {
 
 data class BottomNavItem(val label: String, val icon: ImageVector, val route: String)
 
-// 5 items — Settings is in the top-right corner of each screen
 val bottomNavItems = listOf(
     BottomNavItem("Home",       Icons.Filled.Dashboard,    Routes.DASHBOARD),
-    BottomNavItem("New Case",   Icons.Filled.AddCircle,    Routes.ADD_CASE),
     BottomNavItem("Cases",      Icons.Filled.Gavel,        Routes.ALL_CASES),
+    BottomNavItem("New Case",   Icons.Filled.AddCircle,    Routes.ADD_CASE),
     BottomNavItem("Calendar",   Icons.Filled.CalendarMonth,Routes.CALENDAR),
-    BottomNavItem("Precedents", Icons.Filled.LibraryBooks, Routes.PRECEDENTS),
+    BottomNavItem("Stats",      Icons.Filled.BarChart,     Routes.STATISTICS),
 )
 
 private val hideBottomBarRoutes = setOf(
@@ -55,6 +55,8 @@ private val hideBottomBarRoutes = setOf(
     Routes.ADD_PRECEDENT, Routes.PRECEDENT_DETAIL, Routes.EDIT_PRECEDENT,
     Routes.SETTINGS
 )
+
+// Precedents accessible via Settings top-right on stats screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -150,8 +152,12 @@ fun CourtDiaryNavHost(
             composable(Routes.SETTINGS) {
                 SettingsScreen(
                     viewModel = viewModel,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToPrecedents = { navController.navigate(Routes.PRECEDENTS) }
                 )
+            }
+            composable(Routes.STATISTICS) {
+                StatisticsScreen(viewModel = viewModel)
             }
 
             // Case routes

@@ -19,6 +19,7 @@ import com.courtdiary.model.CourtCase
 import com.courtdiary.ui.theme.PrimaryBlue
 import com.courtdiary.viewmodel.CaseFilter
 import com.courtdiary.viewmodel.CaseViewModel
+import com.courtdiary.viewmodel.StatusFilter
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,19 +32,28 @@ fun AllCasesScreen(
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val activeFilter by viewModel.activeFilter.collectAsState()
+    val statusFilter by viewModel.statusFilter.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
     val allCases by viewModel.allCases.collectAsState()
     val todayCases by viewModel.todayCases.collectAsState()
     val upcomingCases by viewModel.upcomingCases.collectAsState()
     val pastCases by viewModel.pastCases.collectAsState()
+    val statusFilteredCases by viewModel.statusFilteredCases.collectAsState()
 
     // Determine which list to show
-    val displayCases: List<CourtCase> = when {
+    val baseList: List<CourtCase> = when {
         searchQuery.isNotBlank() -> searchResults
         activeFilter == CaseFilter.TODAY -> todayCases
         activeFilter == CaseFilter.UPCOMING -> upcomingCases
         activeFilter == CaseFilter.PAST -> pastCases
         else -> allCases
+    }
+    // Apply status filter on top (when not searching)
+    val displayCases: List<CourtCase> = if (searchQuery.isBlank() && statusFilter != StatusFilter.ALL) {
+        val statusStr = statusFilter.name.lowercase().replaceFirstChar { it.uppercase() }
+        baseList.filter { it.status == statusStr }
+    } else {
+        baseList
     }
 
     Scaffold(
@@ -87,14 +97,20 @@ fun AllCasesScreen(
         ) {
             // Filter chips (only visible when not searching)
             AnimatedVisibility(visible = searchQuery.isBlank()) {
-                FilterChipRow(
-                    activeFilter = activeFilter,
-                    onFilterSelected = viewModel::onFilterChanged,
-                    allCount = allCases.size,
-                    todayCount = todayCases.size,
-                    upcomingCount = upcomingCases.size,
-                    pastCount = pastCases.size
-                )
+                Column {
+                    FilterChipRow(
+                        activeFilter = activeFilter,
+                        onFilterSelected = viewModel::onFilterChanged,
+                        allCount = allCases.size,
+                        todayCount = todayCases.size,
+                        upcomingCount = upcomingCases.size,
+                        pastCount = pastCases.size
+                    )
+                    StatusFilterChipRow(
+                        activeStatus = statusFilter,
+                        onStatusSelected = viewModel::onStatusFilterChanged
+                    )
+                }
             }
 
             if (displayCases.isEmpty()) {
@@ -192,6 +208,35 @@ private fun FilterChipRow(
             onClick = { onFilterSelected(CaseFilter.PAST) },
             label = { Text("Past ($pastCount)") }
         )
+    }
+}
+
+@Composable
+private fun StatusFilterChipRow(
+    activeStatus: StatusFilter,
+    onStatusSelected: (StatusFilter) -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        StatusFilter.entries.forEach { filter ->
+            val label = when (filter) {
+                StatusFilter.ALL -> "Any Status"
+                StatusFilter.ACTIVE -> "Active"
+                StatusFilter.ADJOURNED -> "Adjourned"
+                StatusFilter.DISPOSED -> "Disposed"
+                StatusFilter.WITHDRAWN -> "Withdrawn"
+            }
+            FilterChip(
+                selected = activeStatus == filter,
+                onClick = { onStatusSelected(filter) },
+                label = { Text(label) }
+            )
+        }
     }
 }
 

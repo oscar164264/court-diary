@@ -279,6 +279,28 @@ fun CaseCard(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+
+                if (case.status != "Active") {
+                    Spacer(Modifier.height(4.dp))
+                    val statusColor = when (case.status) {
+                        "Adjourned" -> WarningOrange
+                        "Disposed" -> PrimaryBlue
+                        "Withdrawn" -> UrgentRed
+                        else -> SafeGreen
+                    }
+                    Surface(
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+                        color = statusColor.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = case.status.uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = statusColor,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
             }
 
             Icon(

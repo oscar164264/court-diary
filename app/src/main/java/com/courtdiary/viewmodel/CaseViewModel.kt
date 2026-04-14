@@ -13,9 +13,13 @@ import androidx.lifecycle.viewModelScope
 import com.courtdiary.database.CaseDatabase
 import com.courtdiary.model.CaseDocument
 import com.courtdiary.model.CourtCase
+import com.courtdiary.model.FeeEntry
+import com.courtdiary.model.HearingEntry
 import com.courtdiary.notification.NotificationScheduler
 import com.courtdiary.repository.CaseDocumentRepository
 import com.courtdiary.repository.CaseRepository
+import com.courtdiary.repository.FeeEntryRepository
+import com.courtdiary.repository.HearingEntryRepository
 import com.courtdiary.utils.FileUtils
 import com.courtdiary.utils.toEndOfDayMillis
 import com.courtdiary.utils.toStartOfDayMillis
@@ -48,23 +52,38 @@ sealed class CaseResult {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Filter enum
+// Filter enums
 // ──────────────────────────────────────────────────────────────
 enum class CaseFilter { ALL, TODAY, UPCOMING, PAST }
+enum class StatusFilter { ALL, ACTIVE, ADJOURNED, DISPOSED, WITHDRAWN }
+
+// ──────────────────────────────────────────────────────────────
+// Statistics data
+// ──────────────────────────────────────────────────────────────
+data class CaseStatistics(
+    val totalCases: Int = 0,
+    val byStatus: Map<String, Int> = emptyMap(),
+    val byMonth: Map<String, Int> = emptyMap(),      // "yyyy-MM" -> count
+    val topCourts: List<Pair<String, Int>> = emptyList()
+)
 
 /**
  * ViewModel shared by all screens.
- * All DB access is done through [CaseRepository] on the viewModelScope.
+ * All DB access is done through repositories on the viewModelScope.
  */
 class CaseViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repo: CaseRepository
     private val docRepo: CaseDocumentRepository
+    private val hearingRepo: HearingEntryRepository
+    private val feeRepo: FeeEntryRepository
 
     init {
         val db = CaseDatabase.getDatabase(application)
         repo = CaseRepository(db.caseDao())
         docRepo = CaseDocumentRepository(db.caseDocumentDao())
+        hearingRepo = HearingEntryRepository(db.hearingEntryDao())
+        feeRepo = FeeEntryRepository(db.feeEntryDao())
     }
 
     // ──────────────────────────────────────────
@@ -123,6 +142,9 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     private val _activeFilter = MutableStateFlow(CaseFilter.ALL)
     val activeFilter: StateFlow<CaseFilter> = _activeFilter
 
+    private val _statusFilter = MutableStateFlow(StatusFilter.ALL)
+    val statusFilter: StateFlow<StatusFilter> = _statusFilter
+
     /** Reactive search results from DB */
     val searchResults: StateFlow<List<CourtCase>> = _searchQuery
         .debounce(300)
@@ -131,8 +153,22 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    /** Cases filtered by status */
+    val statusFilteredCases: StateFlow<List<CourtCase>> = _statusFilter
+        .flatMapLatest { filter ->
+            when (filter) {
+                StatusFilter.ALL -> repo.getAllCases()
+                StatusFilter.ACTIVE -> repo.getCasesByStatus("Active")
+                StatusFilter.ADJOURNED -> repo.getCasesByStatus("Adjourned")
+                StatusFilter.DISPOSED -> repo.getCasesByStatus("Disposed")
+                StatusFilter.WITHDRAWN -> repo.getCasesByStatus("Withdrawn")
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     fun onSearchQueryChanged(query: String) { _searchQuery.value = query }
     fun onFilterChanged(filter: CaseFilter) { _activeFilter.value = filter }
+    fun onStatusFilterChanged(filter: StatusFilter) { _statusFilter.value = filter }
 
     // ──────────────────────────────────────────
     // Selected calendar date
@@ -162,7 +198,6 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     fun insertCase(case: CourtCase) {
         viewModelScope.launch {
             try {
-                // Validate unique case number
                 val existing = repo.getCaseByCaseNumber(case.caseNumber)
                 if (existing != null) {
                     _operationResult.emit(CaseResult.Error("CourtCase number '${case.caseNumber}' already exists."))
@@ -170,7 +205,6 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 repo.insertCase(case)
                 _operationResult.emit(CaseResult.Success)
-                // Re-schedule notifications after adding a case
                 NotificationScheduler.schedule(getApplication())
             } catch (e: Exception) {
                 _operationResult.emit(CaseResult.Error(e.message ?: "Unknown error"))
@@ -181,7 +215,6 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     fun updateCase(case: CourtCase) {
         viewModelScope.launch {
             try {
-                // Check uniqueness excluding the current case id
                 val existing = repo.getCaseByCaseNumber(case.caseNumber)
                 if (existing != null && existing.id != case.id) {
                     _operationResult.emit(CaseResult.Error("CourtCase number '${case.caseNumber}' already in use."))
@@ -208,6 +241,85 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     suspend fun getCaseById(id: Int): CourtCase? = repo.getCaseById(id)
+
+    // ──────────────────────────────────────────
+    // Hearing entries
+    // ──────────────────────────────────────────
+
+    fun getHearingEntriesForCase(caseId: Int): Flow<List<HearingEntry>> =
+        hearingRepo.getEntriesForCase(caseId)
+
+    fun addHearingEntry(entry: HearingEntry) {
+        viewModelScope.launch {
+            try {
+                hearingRepo.insert(entry)
+            } catch (e: Exception) {
+                _operationResult.emit(CaseResult.Error(e.message ?: "Failed to save hearing entry"))
+            }
+        }
+    }
+
+    fun deleteHearingEntry(entry: HearingEntry) {
+        viewModelScope.launch { hearingRepo.delete(entry) }
+    }
+
+    // ──────────────────────────────────────────
+    // Fee entries
+    // ──────────────────────────────────────────
+
+    fun getFeeEntriesForCase(caseId: Int): Flow<List<FeeEntry>> =
+        feeRepo.getEntriesForCase(caseId)
+
+    fun getTotalCharged(caseId: Int): Flow<Double> = feeRepo.getTotalCharged(caseId)
+    fun getTotalPaid(caseId: Int): Flow<Double> = feeRepo.getTotalPaid(caseId)
+
+    fun addFeeEntry(entry: FeeEntry) {
+        viewModelScope.launch {
+            try {
+                feeRepo.insert(entry)
+            } catch (e: Exception) {
+                _operationResult.emit(CaseResult.Error(e.message ?: "Failed to save fee entry"))
+            }
+        }
+    }
+
+    fun deleteFeeEntry(entry: FeeEntry) {
+        viewModelScope.launch { feeRepo.delete(entry) }
+    }
+
+    // ──────────────────────────────────────────
+    // Statistics
+    // ──────────────────────────────────────────
+
+    val statistics: StateFlow<CaseStatistics> = repo.getAllCases()
+        .map { cases ->
+            val byStatus = cases.groupingBy { it.status }.eachCount()
+
+            val byMonth = cases
+                .groupingBy { millis ->
+                    val date = java.time.Instant.ofEpochMilli(millis.createdAt)
+                        .atZone(ZoneId.systemDefault()).toLocalDate()
+                    "%04d-%02d".format(date.year, date.monthValue)
+                }
+                .eachCount()
+
+            val topCourts = cases
+                .filter { it.courtName.isNotBlank() }
+                .groupingBy { it.courtName }
+                .eachCount()
+                .entries
+                .sortedByDescending { it.value }
+                .take(5)
+                .map { it.key to it.value }
+
+            CaseStatistics(
+                totalCases = cases.size,
+                byStatus = byStatus,
+                byMonth = byMonth,
+                topCourts = topCourts
+            )
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, CaseStatistics())
 
     // ──────────────────────────────────────────
     // Settings (DataStore)
@@ -261,7 +373,6 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     // ──────────────────────────────────────────
     private val gson = Gson()
 
-    /** Exports all cases to a JSON file in the app's files directory. Returns the File. */
     suspend fun exportToJson(): File {
         val cases = repo.getAllCasesOnce()
         val json = gson.toJson(cases)
@@ -270,7 +381,6 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
         return file
     }
 
-    /** Parses the JSON string and inserts all cases (skips duplicates). */
     fun importFromJson(json: String) {
         viewModelScope.launch {
             try {
@@ -280,7 +390,7 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
                 cases.forEach { c ->
                     val existing = repo.getCaseByCaseNumber(c.caseNumber)
                     if (existing == null) {
-                        repo.insertCase(c.copy(id = 0)) // reset id so Room auto-generates
+                        repo.insertCase(c.copy(id = 0))
                         imported++
                     }
                 }
@@ -299,10 +409,6 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     fun getDocumentsForCase(caseId: Int): Flow<List<CaseDocument>> =
         docRepo.getDocumentsForCase(caseId)
 
-    /**
-     * Copies the file at [uri] into app-internal storage and saves the record to the DB.
-     * Returns true on success.
-     */
     fun attachDocument(caseId: Int, uri: Uri, onResult: (Boolean) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             val doc = FileUtils.copyToAppStorage(getApplication(), uri, caseId)
@@ -317,8 +423,8 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteDocument(doc: CaseDocument) {
         viewModelScope.launch(Dispatchers.IO) {
-            File(doc.filePath).delete()   // remove from storage
-            docRepo.deleteDocument(doc)   // remove from DB
+            File(doc.filePath).delete()
+            docRepo.deleteDocument(doc)
         }
     }
 
@@ -327,7 +433,7 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     // ──────────────────────────────────────────
     fun seedSampleData() {
         viewModelScope.launch {
-            if (repo.getAllCasesOnce().isNotEmpty()) return@launch // already has data
+            if (repo.getAllCasesOnce().isNotEmpty()) return@launch
 
             val today = LocalDate.now()
             val sampleCases = listOf(
@@ -340,7 +446,8 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
                     nextHearingDate = today.plusDays(1).toStartOfDayMillis(),
                     lastStage = "Evidence Submission",
                     nextStage = "Final Arguments",
-                    notes = "Client needs to prepare all original documents."
+                    notes = "Client needs to prepare all original documents.",
+                    status = "Active"
                 ),
                 CourtCase(
                     caseNumber = "CR-2024-078",
@@ -350,7 +457,8 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
                     nextHearingDate = today.toStartOfDayMillis(),
                     lastStage = "Initial Hearing",
                     nextStage = "Witness Examination",
-                    notes = "Bail application pending."
+                    notes = "Bail application pending.",
+                    status = "Active"
                 ),
                 CourtCase(
                     caseNumber = "FM-2023-215",
@@ -361,7 +469,8 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
                     nextHearingDate = today.plusDays(10).toStartOfDayMillis(),
                     lastStage = "Mediation",
                     nextStage = "Settlement Discussion",
-                    notes = "Both parties agreed to mediation."
+                    notes = "Both parties agreed to mediation.",
+                    status = "Adjourned"
                 ),
                 CourtCase(
                     caseNumber = "CC-2024-042",
@@ -372,11 +481,11 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
                     nextHearingDate = today.plusDays(3).toStartOfDayMillis(),
                     lastStage = "Document Review",
                     nextStage = "Expert Witness Testimony",
-                    notes = "Contract dispute – claim value AED 2.5M"
+                    notes = "Contract dispute – claim value AED 2.5M",
+                    status = "Active"
                 )
             )
             sampleCases.forEach { repo.insertCase(it) }
         }
     }
-
 }

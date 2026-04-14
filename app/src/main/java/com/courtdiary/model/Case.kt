@@ -29,5 +29,12 @@ data class CourtCase(
     val nextStage: String = "",
     val notes: String = "",
 
+    // Status
+    val status: String = "Active",   // Active | Adjourned | Disposed | Withdrawn
+
+    // Opposing party details
+    val opposingParty: String = "",
+    val opposingCounsel: String = "",
+
     val createdAt: Long = System.currentTimeMillis()
 )
